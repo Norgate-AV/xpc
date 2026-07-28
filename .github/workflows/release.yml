@@ -1,0 +1,66 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  checks:
+    name: Run Checks
+    uses: ./.github/workflows/checks.yml
+
+  release-prechecks:
+    name: Release Pre-checks
+    uses: ./.github/workflows/release-prechecks.yml
+    secrets: inherit
+
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    needs: [checks, release-prechecks]
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Install Rust tools
+        uses: taiki-e/install-action@v2
+        with:
+          tool: git-cliff,typos-cli
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SCOOP_NORGATEAV_CRESTRON: ${{ secrets.SCOOP_NORGATEAV_CRESTRON }}
+
+      - name: Update GitHub Release with Release Notes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release edit ${{ github.ref_name }} --notes-file RELEASE_NOTES.md
+
+      - name: Commit Changes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ./scripts/commit.sh ${{ github.ref_name }}

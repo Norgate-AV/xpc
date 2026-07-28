@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: [master, develop]
+  pull_request:
+    branches: [master, develop]
+
+jobs:
+  checks:
+    name: Run Checks
+    uses: ./.github/workflows/checks.yml
+    permissions:
+      contents: read
+      statuses: write
+    secrets: inherit
+
+  build:
+    name: Build
+    runs-on: windows-latest
+    needs: [checks]
+    strategy:
+      matrix:
+        goarch: [amd64, arm64]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build optimized binary
+        env:
+          GOARCH: ${{ matrix.goarch }}
+        run: make build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v5
+        with:
+          name: xpc-windows-${{ matrix.goarch }}
+          path: bin/xpc.exe
+          retention-days: 30

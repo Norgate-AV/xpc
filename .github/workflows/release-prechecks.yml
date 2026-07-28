@@ -1,0 +1,43 @@
+name: Release Pre-checks
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  goreleaser-test:
+    name: GoReleaser Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Install GoReleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          install-only: true
+
+      - name: Install Rust tools
+        uses: taiki-e/install-action@v2
+        with:
+          tool: git-cliff,typos-cli
+
+      - name: Run GoReleaser test
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SCOOP_NORGATEAV_CRESTRON: ${{ secrets.SCOOP_NORGATEAV_CRESTRON }}
+        run: |
+          ./scripts/test-goreleaser.sh

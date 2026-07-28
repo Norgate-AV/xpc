@@ -1,0 +1,70 @@
+version: 2
+
+project_name: xpc
+
+before:
+  hooks:
+    - make clean
+    - go generate ./...
+    - go mod tidy
+    - ./scripts/generate-changelog.sh {{ .Tag }}
+    - ./scripts/generate-release-notes.sh {{ .Tag }}
+
+builds:
+  - main: ./main.go
+    binary: xpc
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    flags:
+      - -trimpath
+    tags:
+      - netgo
+      - osusergo
+    ldflags:
+      - -s -w -buildid= -X github.com/Norgate-AV/xpc/internal/version.version={{.Version}}
+      - -X github.com/Norgate-AV/xpc/internal/version.commit={{.Commit}}
+      - -X github.com/Norgate-AV/xpc/internal/version.date={{.Date}}
+      - -extldflags '-static'
+
+archives:
+  - files:
+      - LICENSE*
+      - README*
+      - CHANGELOG*
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+
+checksum:
+  name_template: checksums.txt
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  disable: true
+
+release:
+  github:
+    owner: Norgate-AV
+    name: xpc
+  draft: false
+  mode: replace
+  footer: |
+    **Full Changelog**: https://github.com/Norgate-AV/xpc/compare/{{ .PreviousTag }}...{{ .Tag }}
+
+scoops:
+  - name: xpc
+    repository:
+      owner: Norgate-AV
+      name: scoop-norgateav-crestron
+      token: "{{ .Env.SCOOP_NORGATEAV_CRESTRON }}"
+    directory: bucket
+    homepage: https://github.com/Norgate-AV/xpc
+    description: "Convert a Crestron WebXPanel (Flash) project to XPanel Air"
+    license: MIT
